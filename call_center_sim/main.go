@@ -1,168 +1,139 @@
 package main
 
 import (
-	"container/heap"
-	"log"
+	"fmt"
 	"time"
 )
 
-// const (
-// 	ROCK     = 0
-// 	PAPER    = 1
-// 	SCISSORS = 2
-// )
+// const second time.Millisecond = 1
 
 // func main() {
-// 	clearScreen()
-// 	for i := 0; i < 3; i++ {
-// 		game()
+// 	request := make(chan int)
+// 	response := make(chan int)
+// 	prospect := make(chan int)
+// 	go leadSource(prospect)
+// 	go queueManager(request, response, prospect)
+// 	for agentId := 0; agentId < 300; agentId++ {
+// 		go agent(request, response, agentId)
+// 		time.Sleep(time.Millisecond)
 // 	}
+// 	// time.Sleep(8.5 * 60 * 60 * time.Millisecond)
+// 	time.Sleep(60 * time.Millisecond)
 // }
 
-// func game() {
-// 	rand.Seed(time.Now().UnixNano())
-// 	playerChoice := ""
-// 	playerValue := -1
-
-// 	computerValue := rand.Intn(3)
-
-// 	reader := bufio.NewReader(os.Stdin)
-
-// 	fmt.Print("Please enter rock, paper, or scissors -> ")
-// 	playerChoice, _ = reader.ReadString('\n')
-// 	playerChoice = strings.Replace(playerChoice, "\n", "", -1)
-
-// 	if playerChoice == "rock" {
-// 		playerValue = ROCK
-// 	} else if playerChoice == "paper" {
-// 		playerValue = PAPER
-// 	} else if playerChoice == "scissors" {
-// 		playerValue = SCISSORS
+// func leadSource(source chan int) {
+// 	for i := 0; i < 8*60*5; i++ {
+// 		source <- 1 + rand.Intn(1000)
+// 		time.Sleep(20 * time.Millisecond)
 // 	}
+// 	fmt.Println("closing source")
+// 	close(source)
+// }
 
-// 	switch computerValue {
-// 	case ROCK:
-// 		fmt.Println("Computer chose ROCK")
-// 	case PAPER:
-// 		fmt.Println("Computer chose PAPER")
-// 	case SCISSORS:
-// 		fmt.Println("Computer chose SCISSORS")
-// 	default:
-// 		fmt.Println("How the heck did this happen!?")
+// func agent(request chan int, sorted chan int, agentId int) {
+// 	// fmt.Println("Agent", agentId, "ready for call")
+// 	request <- agentId
+// 	for sVal, sOpen := <-sorted; sOpen; sVal, sOpen = <-sorted {
+// 		fmt.Println("Agent", agentId, "calling lead with score of", sVal)
+// 		minutes := time.Duration(rand.Intn(5) + 5)
+// 		time.Sleep(minutes * 60 * time.Millisecond)
+// 		request <- agentId
 // 	}
+// 	fmt.Println("done calling")
+// }
 
-// 	switch ((playerValue-computerValue)%3 + 3) % 3 {
-// 	case 0:
-// 		fmt.Println("draw!")
-// 	case 1:
-// 		fmt.Println("win!")
-// 	case 2:
-// 		fmt.Println("lose!")
-// 	default:
-// 		fmt.Println("What!? Again?")
+// func queueManager(request chan int, sorted, source chan int) {
+
+// 	queue := &IntHeap{}
+// 	heap.Init(queue)
+// 	var cVal int
+
+// 	sourceClosed := false
+
+// 	for {
+
+// 		select {
+
+// 		case agentId := <-request:
+// 			fmt.Println("Lead requested by agent", agentId)
+// 			if queue.Len() > 0 {
+// 				cVal = heap.Pop(queue).(int)
+// 			} else if !sourceClosed {
+// 				cVal = (<-source)
+// 			}
+// 			fmt.Println("Sending lead with score of", cVal, "to agent", agentId)
+// 			sorted <- cVal
+
+// 		default:
+// 			// pass
+// 		}
+
+// 		sVal, sOpen := <-source
+// 		if sOpen {
+// 			fmt.Println("Received lead with score of", sVal)
+// 			heap.Push(queue, sVal)
+// 		} else if queue.Len() == 0 && !sourceClosed {
+// 			close(sorted)
+// 			sourceClosed = true
+// 		}
 // 	}
 
 // }
 
-// // clearScreen clears the screen
-// func clearScreen() {
-// 	if strings.Contains(runtime.GOOS, "windows") {
-// 		// windows
-// 		cmd := exec.Command("cmd", "/c", "cls")
-// 		cmd.Stdout = os.Stdout
-// 		cmd.Run()
-// 	} else {
-// 		// linux or mac
-// 		cmd := exec.Command("clear")
-// 		cmd.Stdout = os.Stdout
-// 		cmd.Run()
-// 	}
+// type IntHeap []int
+
+// func (h IntHeap) Len() int { return len(h) }
+
+// /*
+// The heap package implements a MinHeap, which prioritizes lower values.
+// Because we want to prioritize higher values, we'll say that a higher value
+// is "Less" than a lower value
+// */
+// func (h IntHeap) Less(i, j int) bool { return h[i] > h[j] }
+// func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+// func (h *IntHeap) Push(x interface{}) {
+// 	// Push and Pop use pointer receivers because they modify the slice's
+// 	// length, not just its contents.
+// 	*h = append(*h, x.(int))
+// }
+
+// func (h *IntHeap) Pop() interface{} {
+// 	old := *h
+// 	n := len(old)
+// 	x := old[n-1]
+// 	*h = old[0 : n-1]
+// 	return x
 // }
 
 func main() {
-	request := make(chan bool)
-	sorted := make(chan int)
-	source := make(chan int)
-	go writer(request, sorted, source)
-	go reader(request, sorted)
-	// control <- 1
-	for _, val := range [10]int{9, 8, 7, 1, 2, 3, 6, 5, 4, 0} {
-		// fmt.Println(val)
-		source <- val
-	}
-	close(source)
-	time.Sleep(10 * time.Second)
+	var chan1 chan int
+	var chan2 chan int
+	go pub(chan1, chan2)
+	go sub(chan1, chan2)
+	time.Sleep(5 * time.Second)
 }
 
-func reader(control chan bool, sorted chan int) {
-	control <- true
-	for sVal, sOpen := <-sorted; sOpen; sVal, sOpen = <-sorted {
-		log.Println(sVal)
-		time.Sleep(1 * time.Second)
-		control <- true
-	}
-	log.Println("done with read")
+func pub(chan1, chan2 chan int) {
+	chan1 <- 1
+	// time.Sleep(time.Second)
+	chan2 <- 1
+	// time.Sleep(time.Second)
+	chan1 <- 1
+	chan2 <- 2
 }
 
-func writer(control chan bool, sorted, source chan int) {
-	queue := &IntHeap{}
-	heap.Init(queue)
-
-	for sVal, sOpen := <-source; sOpen || (queue.Len() > 0); sVal, sOpen = <-source {
-
+func sub(chan1, chan2 chan int) {
+	for i := 0; i < 3; i++ {
+		fmt.Println("pass", i)
 		select {
-
-		case <-control:
-			if queue.Len() > 0 {
-				sorted <- heap.Pop(queue).(int)
-			} else {
-				sorted <- (<-source)
-			}
-
+		case q := <-chan1:
+			fmt.Println("got", q, "from 1")
+		case q := <-chan2:
+			fmt.Println("got", q, "from 2")
 		default:
-
+			fmt.Println("got nothing")
 		}
-
-		if sOpen {
-			heap.Push(queue, sVal)
-		}
+		time.Sleep(time.Second)
 	}
-
 }
-
-type IntHeap []int
-
-func (h IntHeap) Len() int           { return len(h) }
-func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
-func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-
-func (h *IntHeap) Push(x interface{}) {
-	// func (h *IntHeap) Push(x int) {
-	// Push and Pop use pointer receivers because they modify the slice's length,
-	// not just its contents.
-	*h = append(*h, x.(int))
-}
-
-func (h *IntHeap) Pop() interface{} {
-	// func (h *IntHeap) Pop() int {
-	var x int
-	old := *h
-	n := len(old)
-	x = old[n-1]
-	*h = old[0 : n-1]
-	return x
-	// return x.(int)
-}
-
-// This example inserts several ints into an IntHeap, checks the minimum,
-// and removes them in order of priority.
-// func main2() {
-// 	h := &IntHeap{2, 1, 5}
-// 	heap.Init(h)
-// 	var v int = 3
-// 	heap.Push(h, v)
-// 	fmt.Printf("minimum: %d\n", (*h)[0])
-// 	for h.Len() > 0 {
-// 		fmt.Printf("%d ", heap.Pop(h))
-// 	}
-// }
