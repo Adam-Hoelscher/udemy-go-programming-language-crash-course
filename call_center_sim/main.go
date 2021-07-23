@@ -1,134 +1,151 @@
 package main
 
 import (
+	"callCenterSim/priority"
 	"container/heap"
 	"fmt"
 	"math/rand"
 	"time"
 )
 
-const simSecond = 1_000 * time.Microsecond
+const simSecond = time.Millisecond
+const simMinute = 60 * simSecond
+const simHour = 60 * simMinute
+
+type lead struct {
+	value int
+	new   bool
+}
 
 func main() {
 
 	request := make(chan int)
 	response := make(chan int)
-	prospect := make(chan int)
+	prospect := make(chan lead)
 
 	go queueManager(request, response, prospect)
 	for i := 0; i < 1_000; i++ {
-		insertLead(prospect)
+		insertLead(prospect, false)
 	}
 
 	go leadSource(prospect)
-	for agentId := 0; agentId < 300; agentId++ {
-		go agent(request, response, agentId)
+
+	quittingTime := make([]chan bool, 0)
+	for agentId := 0; agentId < 50; agentId++ {
+		clockOut := make(chan bool)
+		quittingTime = append(quittingTime, clockOut)
+		go agent(request, response, agentId, clockOut)
 		time.Sleep(simSecond)
 	}
-	time.Sleep(8.5 * 60 * 60 * simSecond)
-	// time.Sleep(100 * simSecond)
-}
 
-func insertLead(prospect chan int) {
-	prospect <- 1 + rand.Intn(1_000)
-}
-
-func leadSource(prospect chan int) {
-
-	for i := 0; i < 8*60*5; i++ {
-		insertLead(prospect)
-		time.Sleep(20 * simSecond)
+	for _, clockOut := range quittingTime {
+		<-clockOut
 	}
-
-	close(prospect)
 }
 
-func agent(request chan int, sorted chan int, agentId int) {
+func insertLead(prospect chan lead, new bool) {
+	newLead := lead{1 + rand.Intn(1_000), new}
+	prospect <- newLead
+}
 
-	fmt.Println("Agent", agentId, "ready for call")
+func leadSource(prospect chan lead) {
+	for {
+		time.Sleep(4 * simSecond)
+		insertLead(prospect, true)
+	}
+}
+
+func agent(request chan int, sorted chan int, agentId int, clockOut chan bool) {
+
+	var callDuration time.Duration
+
+	fmt.Println("Agent", agentId, "logged in and requested lead")
 	request <- agentId
 
 	for sVal, sOpen := <-sorted; sOpen; sVal, sOpen = <-sorted {
+
 		fmt.Println("Agent", agentId, "calling lead with score of", sVal)
-		minutes := time.Duration(rand.Intn(5) + 5)
-		time.Sleep(minutes * 60 * simSecond)
+
+		if rand.Intn(1000) < sVal {
+			callDuration = time.Duration(5+rand.NormFloat64()*2) * 60 * simSecond
+		} else {
+			callDuration = time.Duration(0)
+		}
+		// callDuration = time.Duration(5) * 30 * simSecond
+		time.Sleep(callDuration)
+
 		request <- agentId
 	}
+
+	fmt.Println("Agent", agentId, "logged out")
+	clockOut <- true
 }
 
-func queueManager(request chan int, sorted, source chan int) {
+func queueManager(request, response chan int, prospect chan lead) {
 
-	queue := &IntHeap{}
-	heap.Init(queue)
-	var cVal int
+	startTime := time.Now()
+	stopTime := startTime.Add(8 * simHour)
 
-	sourceOpen := true
+	queue := &priority.IntMaxHeap{}
 
+	for time.Now().Before(stopTime) {
+		serveRequests(request, response, prospect, queue)
+		readNewLead(prospect, queue)
+	}
+
+	// Stop responding and discard the remaining requests
+	close(response)
 	for {
+		<-request
+	}
+
+}
+
+func serveRequests(
+	request, response chan int,
+	prospect chan lead,
+	queue *priority.IntMaxHeap) {
+
+	var cVal int
+	requestsEmpty := false
+
+	for !requestsEmpty {
 
 		select {
 
 		case agentId := <-request:
+
 			fmt.Println("Lead requested by agent", agentId)
+
 			if queue.Len() > 0 {
+				fmt.Println("Popping a lead from the queue")
 				cVal = heap.Pop(queue).(int)
-			} else if sourceOpen {
-				cVal = <-source
+			} else {
+				fmt.Println("Queue is empty. Waiting for a lead")
+				cVal = (<-prospect).value
 			}
-			fmt.Println("Sending lead with score of", cVal, "to agent", agentId)
-			if sourceOpen {
-				sorted <- cVal
-			}
+			fmt.Println("Sending lead with value", cVal, "to agent", agentId, queue.Len(), "remaining")
+			response <- cVal
 
 		default:
-			// pass
-		}
-
-		sVal, sOpen := <-source
-		if sOpen {
-			fmt.Println("Received lead with score of", sVal)
-			heap.Push(queue, sVal)
-		} else if queue.Len() == 0 && sourceOpen {
-			close(sorted)
-			sourceOpen = false
+			requestsEmpty = true
 		}
 	}
 
 }
 
-type IntHeap []int
+func readNewLead(
+	prospect chan lead,
+	queue *priority.IntMaxHeap) {
 
-func (h IntHeap) Len() int { return len(h) }
-
-/*
-The heap package implements a MinHeap, which prioritizes lower values.
-Because we want to prioritize higher values, we'll say that a higher value
-is "Less" than a lower value
-*/
-func (h IntHeap) Less(i, j int) bool { return h[i] > h[j] }
-
-func (h IntHeap) Max() int {
-	temp := h[0]
-	for _, val := range h {
-		if val > temp {
-			temp = val
+	select {
+	case sLead := <-prospect:
+		if sLead.new {
+			fmt.Println("Received lead with value of", sLead.value)
 		}
+		heap.Push(queue, sLead.value)
+	default:
+		// pass
 	}
-	return temp
-}
 
-func (h IntHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
-
-func (h *IntHeap) Push(x interface{}) {
-	// Push and Pop use pointer receivers because they modify the slice's
-	// length, not just its contents.
-	*h = append(*h, x.(int))
-}
-
-func (h *IntHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
 }
