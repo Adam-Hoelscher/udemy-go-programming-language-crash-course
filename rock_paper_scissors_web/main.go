@@ -14,10 +14,15 @@ func homePage(writer http.ResponseWriter, request *http.Request) {
 }
 
 func playRound(writer http.ResponseWriter, request *http.Request) {
+
 	log.Println(request)
-	round := rps.PlayRound(1)
+
+	choiceString := request.URL.Query().Get("c")
+	round := rps.PlayRound(choiceString)
 	out, err := json.MarshalIndent(round, "", "    ")
 	check(err)
+
+	writer.Header().Set("Content-Type", "application/json")
 	writer.Write(out)
 }
 

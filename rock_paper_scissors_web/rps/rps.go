@@ -2,40 +2,37 @@ package rps
 
 import (
 	"math/rand"
+	"strings"
 	"time"
 )
 
-const (
-	ROCK     = 0
-	PAPER    = 1
-	SCISSORS = 2
-)
-
-type Round struct {
-	Result         int
-	ComputerChoice string
-	RoundResult    string
+var choiceValues = map[string]int{
+	"ROCK":     0,
+	"PAPER":    1,
+	"SCISSORS": 2,
 }
 
-func PlayRound(playerValue int) Round {
+var valueChoices = [3]string{"ROCK", "PAPER", "SCISSORS"}
+
+type Round struct {
+	PlayerChoide   string `json:"player_choice"`
+	ComputerChoice string `json:"computer_choice"`
+	RoundResult    string `json:"round_result"`
+}
+
+func PlayRound(playerChoice string) Round {
 
 	var computerChoice, roundResult string
 
 	rand.Seed(time.Now().UnixNano())
 	computerValue := rand.Intn(3)
+	computerChoice = "Computer chose " + valueChoices[computerValue]
 
-	switch computerValue {
-	case ROCK:
-		computerChoice = "Computer chose ROCK"
-	case PAPER:
-		computerChoice = "Computer chose PAPER"
-	case SCISSORS:
-		computerChoice = "Computer chose SCISSORS"
-	default:
-		panic("How the heck did this happen!?")
-	}
+	playerChoice = strings.ToUpper(playerChoice)
+	playerValue := choiceValues[playerChoice]
+	playerChoice = "Player chose " + playerChoice
 
-	result := (playerValue - computerValue + 3) % 3
+	result := (3 + playerValue - computerValue) % 3
 	switch result {
 	case 0:
 		roundResult = "Draw!"
@@ -47,5 +44,5 @@ func PlayRound(playerValue int) Round {
 		panic("What!? Again?")
 	}
 
-	return Round{result, computerChoice, roundResult}
+	return Round{playerChoice, computerChoice, roundResult}
 }
